@@ -11,6 +11,12 @@ I wish:
 * Optionally write the scaled peptides, and the scaled peptides without outlier matrices
 * Optional profile plots of peptides and resulting protein
 
+# Install dependencies
+
+```
+install.packages(c("tidyverse", "outliers", "argparser"))
+```
+
 # Basic run examples from terminal
 
 ## With design matrix
