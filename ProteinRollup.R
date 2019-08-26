@@ -7,9 +7,9 @@ library(matrixStats)
 
 protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE, one_hit_wonders=FALSE, min_presence=0) {
     # protein_rollup = function(pep_ids, protein_ids, pep_mat, rollup_func=self$rrollup, protein_col_name="Protein") {
-        
-    if (min_presence > 0) {
-        warning("Argument 'min_presence' not implemented yet, processing with no minimum set")
+
+    if (typeof(pep_mat) != "double") {
+        warning("Input expected to be a 'double' matrix, found: ", typeof(pep_mat))
     }
     
     unique_proteins <- unique(protein_ids)
@@ -18,6 +18,7 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
     scaled_pep_results <- list()
     scaled_pep_results_noout <- list()
     rollup_scores <- list()
+    low_presence_omitted <- 0
     
     passing_proteins <- c()
     
@@ -37,10 +38,12 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
             passing_proteins <- c(passing_proteins, protein)
         }
         else {
-            message("Skipping protein ", protein, " due to low presence")
+            #message("Skipping protein ", protein, " due to low presence")
+            low_presence_omitted <- low_presence_omitted + 1
         }
-        
     }
+    
+    message(low_presence_omitted, " proteins omitted due to low presence")
 
     annot_df <- data.frame(Protein=unique_proteins)
     colnames(annot_df) <- c(protein_col_name)
@@ -50,14 +53,12 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
         Protein=passing_proteins, 
         pep_count=pep_counts %>% unlist(), 
         rollup_score=rollup_scores  %>% unlist(),
-        data.frame(do.call("rbind", prot_results))
+        data.frame(do.call("rbind", prot_results), row.names = NULL)
     ) %>% arrange(Protein)
     
     if (!one_hit_wonders) {
         out_df <- out_df %>% filter(pep_count > 1)
     }
-    
-    rownames(out_df) <- NULL
     
     if (!get_debug_info) {
         out_df
@@ -73,7 +74,7 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
    
 passes_presence_threshold <- function(peptides, presence_fraction) {
     
-    max(rowSums(is.na(peptides))) > (ncol(peptides) * presence_fraction)
+    max(rowSums(!is.na(peptides))) > (ncol(peptides) * presence_fraction)
     
 }
  
