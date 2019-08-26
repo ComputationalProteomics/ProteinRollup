@@ -1,15 +1,44 @@
-# Basic run example
+# Basic run examples from terminal
+
+## With design matrix
+
+If you have multiple annotation columns in your data matrix, you need to use a design matrix
+to distinguish these
+
+```
+Rscript ProteinRollup.R \
+    --rdf_fp testdata/dummy_df.tsv \
+    --ddf_fp ProteinRollup/testdata/dummy_df_design.tsv \
+    --sample_col sample \
+    --protein_col Protein \
+    --out_fp test_out.tsv
+```
+
+## With single-column annotation
+
+If having an expression dataset with a single annotation column specifying the proteins, the following call can be executed.
+
+```
+Rscript ProteinRollup.R \
+    --rdf_fp testdata/dummy_df.tsv \
+    --out_fp test_out.tsv \
+    --one_column_mode TRUE
+```
+
+# Basic run example from R
 
 ```
 library(tidyverse)
+source("ProteinRollup.R")
+
 peptide_rdf <- read_tsv("testdata/dummy_df.tsv")
 peptide_mat <- peptide_rdf[, -1] %>% as.matrix()
 protein_ids <- peptide_mat$Protein
 
-pr$protein_rollup(protein_ids, peptide_mat)
+protein_rollup(protein_ids, peptide_mat)
 ```
 
-# What is RROllup?
+# What is RRollup?
 
 * A reference peptide is selected based on (1) fewest missing values and (2) if several peptides ties - the one with highest median intensity
 * Ratios to reference are calculated for all. The ratio is simply subtracting the log-scale reference from each peptide
