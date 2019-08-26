@@ -1,14 +1,20 @@
 library(R6)
 library(outliers)
-library(tidyverse)
+suppressPackageStartupMessages(library(tidyverse))
 
 # Inspired by DANTE and pmartR
-protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE) {
+protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE, one_hit_wonders=FALSE, min_presence=0) {
     # protein_rollup = function(pep_ids, protein_ids, pep_mat, rollup_func=self$rrollup, protein_col_name="Protein") {
         
     if (typeof(pep_mat) != "double") {
         warning("pep_mat is expected to consist of a numeric matrix. You can obtain this by omitting your annotation columns and executing: as.matrix(my_df)")
     }
+    
+    if (min_presence > 0) {
+        warning("Argument 'min_presence' not implemented yet, processing with no minimum set")
+    }
+    
+    # TODO Clear out peptides with lower-
     
     unique_proteins <- unique(protein_ids)
     pep_counts <- list()
@@ -41,6 +47,11 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
         rollup_score=rollup_scores %>% unlist(), 
         data.frame(do.call("rbind", prot_results))
     ) %>% arrange(Protein)
+    
+    if (!one_hit_wonders) {
+        out_df <- out_df %>% filter(pep_count > 1)
+    }
+    
     rownames(out_df) <- NULL
     
     if (!get_debug_info) {
@@ -85,7 +96,7 @@ rrollup = function(peptides, combine_func=median, min_overlap=3, get_debug_info=
         # Calculate how far off the median for each rows non-NA values are from the reference
         overlap_medians <- matrixStats::rowMedians(ref_ratios, na.rm=TRUE)
         
-        # TODO Get rid of medians for sparse peptides, meaning these won't be weighted in the scaling calculations
+        # Get rid of medians for sparse peptides, meaning these won't be weighted in the scaling calculations
         overlap_count <- rowSums(!is.na(ref_ratios))
         overlap_medians[which(overlap_count < min_overlap)] <- 0 # Should this not be assigned NA?
         
@@ -97,8 +108,6 @@ rrollup = function(peptides, combine_func=median, min_overlap=3, get_debug_info=
         
         # 4. Calculate sample-wise medians across reference and scaled peptides
         protein_val <- apply(x_scaled_nooutlier, 2, combine_func, na.rm=TRUE)
-        
-        # TODO calculate rollup score
         rollup_score <- rollup.score(x_scaled, protein_val, "pearson")
     }
     
@@ -332,7 +341,7 @@ main <- function() {
     
     message("Performing rollup for ", nrow(raw_rdf), " peptides for ", length(unique(protein_data)), " unique protein IDs")
     
-    prot_sdf <- protein_rollup(protein_data, as.matrix(sdf))
+    prot_sdf <- protein_rollup(protein_data, as.matrix(sdf), one_hit_wonders=argv$one_hit_wonders, min_presence=argv$min_presence)
     write_tsv(prot_sdf, path=argv$out_fp)
     message("Resulting file written to ", argv$out_fp)
 }
@@ -347,6 +356,12 @@ parse_input_params <- function() {
     
     parser <- add_argument(parser, "--sample_col", help="Design matrix sample column", type="character", default="sample")
     parser <- add_argument(parser, "--protein_col", help="Protein column in main data frame", type="character", default="Protein")
+    
+    parser <- add_argument(parser, "--min_overlap", help="Min. shared overlap between reference peptides and other", type="numeric", default=3)
+    
+    parser <- add_argument(parser, "--one_hit_wonders", help="Should proteins with a single peptide as support be included", type="boolean", default=FALSE)
+    
+    parser <- add_argument(parser, "--min_presence", help="Minimum peptide non-missing-value presence to be included (not implemented yet)", type="numeric", default=0)
     
     parser <- add_argument(parser, "--out_protein_name", help="Name of protein column in output", type="character")
     # parser <- add_argument(parser, "--protein_rollup_path", help="CraftOmics protein tools path", type="character", default="ProteinRollup.R")

@@ -1,14 +1,14 @@
 # NOTE
 
-This is a fresh software. Initially, I recommend you cross-check the results with InfernoRDN (https://omics.pnl.gov/software/infernordn). This one is a rewrite of the RRollup method found in InfernoRDN.
+This is a fresh software. Initially, I recommend you cross-check the results with InfernoRDN ([homepage](https://omics.pnl.gov/software/infernordn)). This one is a rewrite of the RRollup method found in [InfernoRDN](https://github.com/PNNL-Comp-Mass-Spec/InfernoRDN/blob/master/Rscripts/Rollup/RRollup.R#L55).
 
 Settings to include:
 
-* Optional omitting of one-hit wonders
 * Presence percentage requirements for peptides (no requirement here, InfernoRDN requires 50% per default)
 
 I wish:
 
+* Optionally write the scaled peptides, and the scaled peptides without outlier matrices
 * Optional profile plots of peptides and resulting protein
 
 # Basic run examples from terminal
