@@ -14,7 +14,7 @@ I wish:
 # Install dependencies
 
 ```
-install.packages(c("tidyverse", "outliers", "argparser"))
+install.packages(c("tidyverse", "outliers", "argparser", "matrixStats"))
 ```
 
 # Basic run examples from terminal

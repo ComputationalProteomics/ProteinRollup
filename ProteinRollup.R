@@ -1,19 +1,16 @@
 library(outliers)
 suppressPackageStartupMessages(library(tidyverse))
+library(matrixStats)
 
 # Inspired by DANTE and pmartR
+# https://github.com/PNNL-Comp-Mass-Spec/InfernoRDN/blob/master/Rscripts/Rollup/RRollup.R
+
 protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE, one_hit_wonders=FALSE, min_presence=0) {
     # protein_rollup = function(pep_ids, protein_ids, pep_mat, rollup_func=self$rrollup, protein_col_name="Protein") {
         
-    if (typeof(pep_mat) != "double") {
-        warning("pep_mat is expected to consist of a numeric matrix. You can obtain this by omitting your annotation columns and executing: as.matrix(my_df)")
-    }
-    
     if (min_presence > 0) {
         warning("Argument 'min_presence' not implemented yet, processing with no minimum set")
     }
-    
-    # TODO Clear out peptides with lower-
     
     unique_proteins <- unique(protein_ids)
     pep_counts <- list()
@@ -22,18 +19,27 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
     scaled_pep_results_noout <- list()
     rollup_scores <- list()
     
+    passing_proteins <- c()
+    
     for (protein in unique_proteins) {
         
         row_inds <- which(protein_ids == protein)
         current_peps_only <- pep_mat[row_inds, , drop=FALSE]
         
-        rollup_list <- rollup_func(current_peps_only, get_debug_info=TRUE)
-        prot_results[[protein]] <- rollup_list$protein
-        scaled_pep_results[[protein]] <- rollup_list$scaled_peptide
-        scaled_pep_results_noout[[protein]] <- rollup_list$scaled_peptide_nooutlier
-        rollup_scores[[protein]] <- rollup_list$rollup_score
+        if (passes_presence_threshold(current_peps_only, min_presence)) {
+            rollup_list <- rollup_func(current_peps_only, get_debug_info=TRUE)
+            prot_results[[protein]] <- rollup_list$protein
+            scaled_pep_results[[protein]] <- rollup_list$scaled_peptide
+            scaled_pep_results_noout[[protein]] <- rollup_list$scaled_peptide_nooutlier
+            rollup_scores[[protein]] <- rollup_list$rollup_score
+            
+            pep_counts[[protein]] <- nrow(current_peps_only)
+            passing_proteins <- c(passing_proteins, protein)
+        }
+        else {
+            message("Skipping protein ", protein, " due to low presence")
+        }
         
-        pep_counts[[protein]] <- nrow(current_peps_only)
     }
 
     annot_df <- data.frame(Protein=unique_proteins)
@@ -41,9 +47,9 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
     
     # Generate the final annotated protein matrix
     out_df <- cbind(
-        Protein=annot_df, 
+        Protein=passing_proteins, 
         pep_count=pep_counts %>% unlist(), 
-        rollup_score=rollup_scores %>% unlist(), 
+        rollup_score=rollup_scores  %>% unlist(),
         data.frame(do.call("rbind", prot_results))
     ) %>% arrange(Protein)
     
@@ -64,7 +70,13 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
         )
     }
 }
+   
+passes_presence_threshold <- function(peptides, presence_fraction) {
     
+    max(rowSums(is.na(peptides))) > (ncol(peptides) * presence_fraction)
+    
+}
+ 
 rrollup = function(peptides, combine_func=median, min_overlap=3, get_debug_info=FALSE, minPs=5, outlier_pval=0.05) {
     
     num_peps <- nrow(peptides)
@@ -155,7 +167,6 @@ rollup.score = function(currPepSel, currProtSel, method) {
     
 # Based on InfernoRDN
 # Unable to target the reference peptide, is that correct?
-# https://github.com/PNNL-Comp-Mass-Spec/InfernoRDN/blob/master/Rscripts/Rollup/RRollup.R
 remove_outliers = function(pep_mat, minPs=5, pvalue_thres=0.05) {
     
     xPeptideCount <- colSums(!is.na(pep_mat))
@@ -166,11 +177,10 @@ remove_outliers = function(pep_mat, minPs=5, pvalue_thres=0.05) {
             no_outliers_found <- FALSE
             iterations <- 0
             
-            while (!no_outliers_found && iterations < 1000) {
+            while (!no_outliers_found) {
                 iterations <- iterations + 1
                 
                 grubbs <- outliers::grubbs.test(pep_mat[, sample_i])
-                # browser()
                 if ((grubbs$p.value < pvalue_thres) && (!is.nan(grubbs$statistic[2])) && grubbs$statistic[2] != 0) {
                     pep_mat[, sample_i] <- rm.outlier.1(pep_mat[, sample_i], fill=TRUE, select_func=median)
                 }
@@ -360,7 +370,7 @@ parse_input_params <- function() {
     
     parser <- add_argument(parser, "--one_hit_wonders", help="Should proteins with a single peptide as support be included", type="boolean", default=FALSE)
     
-    parser <- add_argument(parser, "--min_presence", help="Minimum peptide non-missing-value presence to be included (not implemented yet)", type="numeric", default=0)
+    parser <- add_argument(parser, "--min_presence", help="Skip proteins where no peptide is present in at least this percentage", type="numeric", default=0)
     
     parser <- add_argument(parser, "--out_protein_name", help="Name of protein column in output", type="character")
     # parser <- add_argument(parser, "--protein_rollup_path", help="CraftOmics protein tools path", type="character", default="ProteinRollup.R")
