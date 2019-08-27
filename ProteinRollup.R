@@ -33,6 +33,7 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
             scaled_pep_results[[protein]] <- rollup_list$scaled_peptide
             scaled_pep_results_noout[[protein]] <- rollup_list$scaled_peptide_nooutlier
             rollup_scores[[protein]] <- rollup_list$rollup_score
+
             
             pep_counts[[protein]] <- nrow(current_peps_only)
             passing_proteins <- c(passing_proteins, protein)
@@ -75,7 +76,6 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
 passes_presence_threshold <- function(peptides, presence_fraction) {
     
     max(rowSums(!is.na(peptides))) > (ncol(peptides) * presence_fraction)
-    
 }
  
 rrollup = function(peptides, combine_func=median, min_overlap=3, get_debug_info=FALSE, minPs=5, outlier_pval=0.05) {
@@ -136,38 +136,9 @@ rrollup = function(peptides, combine_func=median, min_overlap=3, get_debug_info=
     }
 }
     
-rollup.score = function(currPepSel, currProtSel, method) {
-    N1 <- dim(currPepSel)[1]
-    N2 <- dim(currPepSel)[2]
-    pepCorr <- rep(numeric(0),N1)
-    ws <- rep(numeric(0),N1)
-    
-    for(i in 1:N1)#finds correlation values between each peptide profile and calculated protein profile
-    {
-        ws[i] <- sum(!is.na(currPepSel[i,]))/N2
-        if(method=="pearson")
-            pepCorr[i] <- cor(as.vector(currPepSel[i,]), as.vector(currProtSel), use="pairwise.complete.obs")
-        else if(method=="kendall")
-            pepCorr[i] <- cor(as.vector(currPepSel[i,]), as.vector(currProtSel), use="pairwise.complete.obs",
-                              method="kendall")
-        else
-            pepCorr[i] <- cor(as.vector(currPepSel[i,]), as.vector(currProtSel), use="pairwise.complete.obs",
-                              method="spearman")
-    }
-    #meanCorr <- mean(pepCorr, na.rm=TRUE) #mean correlation value for each protein
-    meanCorr <- weighted.mean(pepCorr, ws, na.rm=TRUE) #mean correlation value for each protein
-    Penalty1 <- 1-1/N1
-    #Penalty2 <- sum(!is.na(currPepSel))/(N1*N2)
-    #Score <- meanCorr * Penalty1 * Penalty2
-    Score <- meanCorr * Penalty1
-    
-    out <- Score
-    return(out)
-}
-    
-    
 # Based on InfernoRDN
 # Unable to target the reference peptide, is that correct?
+# The outliers::grubbs.test produces NaN values if comparing a state with zero variance to a single value (i.e. c(1,1,2) or c(2,2,2,3))
 remove_outliers = function(pep_mat, minPs=5, pvalue_thres=0.05) {
     
     xPeptideCount <- colSums(!is.na(pep_mat))
@@ -178,9 +149,13 @@ remove_outliers = function(pep_mat, minPs=5, pvalue_thres=0.05) {
             no_outliers_found <- FALSE
             iterations <- 0
             
+            if (sample_i == 9) {
+                browser()
+            }
+            
             while (!no_outliers_found) {
                 iterations <- iterations + 1
-                
+
                 grubbs <- outliers::grubbs.test(pep_mat[, sample_i])
                 if ((grubbs$p.value < pvalue_thres) && (!is.nan(grubbs$statistic[2])) && grubbs$statistic[2] != 0) {
                     pep_mat[, sample_i] <- rm.outlier.1(pep_mat[, sample_i], fill=TRUE, select_func=median)
@@ -246,60 +221,12 @@ outlier.1 = function (x, opposite = FALSE, logical = FALSE, na.rm = TRUE)
     }
 }
 
-# zrollup = function(peptides, combine_func=median) {
-#     warning("Relatively untested, and no Grubbs outlier test performed")
-#     
-#     num_peps <- nrow(peptides)
-#     #res <- matrix(NA, nrow=1, ncol=ncol(peptides))
-#     
-#     # Compute mean and sd of peptides
-#     mds <- matrixStats::rowMedians(peptides, na.rm=TRUE)
-#     sds <- matrixStats::rowSds(peptides, na.rm=TRUE)
-#     
-#     # Scale peptide data as pep_scaled = (pep - median) / sd
-#     medians_mat <- matrix(mds, nrow=num_peps, ncol=ncol(peptides), byrow=FALSE)
-#     standiv_mat <- matrix(sds, nrow=num_peps, ncol=ncol(peptides), byrow=FALSE)
-#     
-#     proteins_scaled <- apply((peptides - medians_mat) / standiv_mat, 2, combine_func, na.rm=TRUE)
-#     proteins_scaled
-# }
-    
-# # qrollup_thres: 0 - 1 value, peptides above threshold used for rollup
-# qrollup = function(peptides, qrollup_thres, combine_func=median) {
-#     
-#     warning("Relatively untested, and no Grubbs outlier test performed")
-#     num_peps <- nrow(peptides)
-#     if (num_peps == 1) {
-#         protein_val <- unlist(peptides)
-#         peps_used <- 1
-#     }
-#     else {
-#         # Step 1: Subset peptides with abundance >= qrollup_threshold
-#         means <- Matrix::rowMeans(peptides, na.rm=TRUE)
-#         quantil <- quantile(means, probs=qrollup_thres, na.rm=TRUE)
-#         
-#         quality_peps <- peptides[means >= quantil, ]
-#         peps_used <- nrow(quality_peps)
-#         
-#         # Step 1b: If only 1 peptide, set protein value to that
-#         if (nrow(quality_peps) == 1) {
-#             protein_val <- unlist(quality_peps)
-#         }
-#         # Step 2: Set protein abundance to mean / median of peptide abundances
-#         else {
-#             protein_val <- apply(quality_peps, 2, combine_func, na.rm=TRUE)
-#         }
-#         
-#         protein_val
-#     }
-# }
-
 rollup.score = function(currPepSel, currProtSel, method) {
-    
+
     N1 <- dim(currPepSel)[1]
     N2 <- dim(currPepSel)[2]
-    pepCorr <- rep(numeric(0),N1)
-    ws <- rep(numeric(0),N1)
+    pepCorr <- rep(numeric(0), N1)
+    ws <- rep(numeric(0), N1)
     
     # Finds correlation values between each peptide profile and calculated protein profile
     for(i in 1:N1) {
@@ -327,6 +254,7 @@ rollup.score = function(currPepSel, currProtSel, method) {
     Score <- meanCorr * Penalty1
     
     out <- Score
+    
     return(out)
 }
 
@@ -358,25 +286,35 @@ main <- function() {
 
 parse_input_params <- function() {
     parser <- arg_parser("Protein rollup, standalone wrapper")
-    parser <- add_argument(parser, "--ddf_fp", help="Design matrix path", type="character")
-    parser <- add_argument(parser, "--rdf_fp", help="Raw matrix path", type="character")
-    parser <- add_argument(parser, "--out_fp", help="Output matrix path", type="character")
+    parser <- add_argument(parser, "--ddf_fp", help="Design matrix path", type="character", default=NA)
+    parser <- add_argument(parser, "--rdf_fp", help="Raw matrix path", type="character", nargs=1)
+    parser <- add_argument(parser, "--out_fp", help="Output matrix path", type="character", nargs=1)
+    parser <- add_argument(parser, "--sample_col", help="Design matrix sample column", type="character", default=NA)
+    parser <- add_argument(parser, "--protein_col", help="Protein column in main data frame", type="character", default=NA)
     
     parser <- add_argument(parser, "--one_column_mode", help="If first column is the only annotation column, the --ddf_fp, --sample_col and --protein_col argument can be omitted", type="boolean", default=FALSE)
     
-    parser <- add_argument(parser, "--sample_col", help="Design matrix sample column", type="character", default="sample")
-    parser <- add_argument(parser, "--protein_col", help="Protein column in main data frame", type="character", default="Protein")
     
     parser <- add_argument(parser, "--min_overlap", help="Min. shared overlap between reference peptides and other", type="numeric", default=3)
-    
     parser <- add_argument(parser, "--one_hit_wonders", help="Should proteins with a single peptide as support be included", type="boolean", default=FALSE)
-    
     parser <- add_argument(parser, "--min_presence", help="Skip proteins where no peptide is present in at least this percentage", type="numeric", default=0)
-    
     parser <- add_argument(parser, "--out_protein_name", help="Name of protein column in output", type="character")
     # parser <- add_argument(parser, "--protein_rollup_path", help="CraftOmics protein tools path", type="character", default="ProteinRollup.R")
-    
+
+    parser <- add_argument(parser, "--show_warnings", help="Immediately print warnings", type="bool", default=FALSE)
+        
     argv <- parse_args(parser)
+    
+    if (!argv$one_column_mode && (is.na(argv$sample_col) || is.na(argv$protein_col) || is.na(argv$ddf_fp))) {
+        stop("If not running one_column_mode both --ddf_fp, --sample_col and --protein_col needs to be supplied")
+    }
+    
+    if (argv$show_warnings) {
+        options(warn=1)
+        message("warn=1 assigned, warnings shown as they occur")
+    }
+    
+    argv
 }
 
 if (!interactive()) {
