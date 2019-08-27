@@ -149,10 +149,6 @@ remove_outliers = function(pep_mat, minPs=5, pvalue_thres=0.05) {
             no_outliers_found <- FALSE
             iterations <- 0
             
-            if (sample_i == 9) {
-                browser()
-            }
-            
             while (!no_outliers_found) {
                 iterations <- iterations + 1
 
