@@ -5,7 +5,7 @@ library(matrixStats)
 # Inspired by DANTE and pmartR
 # https://github.com/PNNL-Comp-Mass-Spec/InfernoRDN/blob/master/Rscripts/Rollup/RRollup.R
 
-protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE, one_hit_wonders=FALSE, min_presence=0) {
+protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE, one_hit_wonders=FALSE, min_presence=0, min_overlap=3) {
     # protein_rollup = function(pep_ids, protein_ids, pep_mat, rollup_func=self$rrollup, protein_col_name="Protein") {
 
     if (typeof(pep_mat) != "double") {
@@ -28,13 +28,12 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
         current_peps_only <- pep_mat[row_inds, , drop=FALSE]
         
         if (passes_presence_threshold(current_peps_only, min_presence)) {
-            rollup_list <- rollup_func(current_peps_only, get_debug_info=TRUE)
+            rollup_list <- rollup_func(current_peps_only, get_debug_info=TRUE, min_overlap=min_overlap)
             prot_results[[protein]] <- rollup_list$protein
             scaled_pep_results[[protein]] <- rollup_list$scaled_peptide
             scaled_pep_results_noout[[protein]] <- rollup_list$scaled_peptide_nooutlier
             rollup_scores[[protein]] <- rollup_list$rollup_score
 
-            
             pep_counts[[protein]] <- nrow(current_peps_only)
             passing_proteins <- c(passing_proteins, protein)
         }
@@ -275,7 +274,7 @@ main <- function() {
     
     message("Performing rollup for ", nrow(raw_rdf), " peptides for ", length(unique(protein_data)), " unique protein IDs")
     
-    prot_sdf <- protein_rollup(protein_data, as.matrix(sdf), one_hit_wonders=argv$one_hit_wonders, min_presence=argv$min_presence)
+    prot_sdf <- protein_rollup(protein_data, as.matrix(sdf), one_hit_wonders=argv$one_hit_wonders, min_presence=argv$min_presence, min_overlap=argv$min_overlap)
     write_tsv(prot_sdf, path=argv$out_fp)
     message("Resulting file written to ", argv$out_fp)
 }
@@ -298,7 +297,7 @@ parse_input_params <- function() {
     # parser <- add_argument(parser, "--protein_rollup_path", help="CraftOmics protein tools path", type="character", default="ProteinRollup.R")
 
     parser <- add_argument(parser, "--show_warnings", help="Immediately print warnings", type="bool", default=FALSE)
-        
+
     argv <- parse_args(parser)
     
     if (!argv$one_column_mode && (is.na(argv$sample_col) || is.na(argv$protein_col) || is.na(argv$ddf_fp))) {
