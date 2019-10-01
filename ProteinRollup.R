@@ -5,8 +5,7 @@ library(matrixStats, warn.conflicts=FALSE)
 # Inspired by DANTE and pmartR
 # https://github.com/PNNL-Comp-Mass-Spec/InfernoRDN/blob/master/Rscripts/Rollup/RRollup.R
 
-protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE, one_hit_wonders=FALSE, min_presence=0, min_overlap=3) {
-    # protein_rollup = function(pep_ids, protein_ids, pep_mat, rollup_func=self$rrollup, protein_col_name="Protein") {
+protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE, one_hit_wonders=FALSE, min_presence=0, min_overlap=3, debug_protein=NULL) {
 
     if (typeof(pep_mat) != "double") {
         warning("Input expected to be a 'double' matrix, found: ", typeof(pep_mat))
@@ -19,28 +18,27 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
     scaled_pep_results_noout <- list()
     rollup_scores <- list()
     low_presence_omitted <- 0
-    
     passing_proteins <- c()
     
-    print_stuff <- FALSE
+    debug_print <- FALSE
     
     for (protein in unique_proteins) {
         
-        if (protein == "P_3054") {
-            print("FOUND IT")
-            print_stuff <- TRUE
+        if (!is.null(debug_protein) && protein == debug_protein) {
+            message("Found target protein: ", debug_protein)
+            debug_print <- TRUE
         }
         
         row_inds <- which(protein_ids == protein)
         current_peps_only <- pep_mat[row_inds, , drop=FALSE]
         
-        if (print_stuff) {
+        if (debug_print) {
             print(current_peps_only)
             print("Passing threshold")
-            print(passes_presence_threshold(current_peps_only, min_presence))
+            print(passes_presence_threshold(current_peps_only, min_presence, min_overlap, debug_print=TRUE))
         }
         
-        if (passes_presence_threshold(current_peps_only, min_presence, print_stuff)) {
+        if (passes_presence_threshold(current_peps_only, min_presence, min_overlap)) {
             rollup_list <- rollup_func(current_peps_only, get_debug_info=TRUE, min_overlap=min_overlap)
             prot_results[[protein]] <- rollup_list$protein
             scaled_pep_results[[protein]] <- rollup_list$scaled_peptide
@@ -55,13 +53,12 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
             low_presence_omitted <- low_presence_omitted + 1
         }
         
-        if (print_stuff) {
-            # stop("Done with PRINT STUFF")
-            print_stuff <- FALSE
+        if (debug_print) {
+            stop("Debug print done")
         }
     }
     
-    # message(low_presence_omitted, " proteins omitted due to low presence")
+    message(low_presence_omitted, " proteins omitted due to low protein coverage in peptides")
 
     annot_df <- data.frame(Protein=unique_proteins)
     colnames(annot_df) <- c(protein_col_name)
@@ -90,33 +87,39 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
     }
 }
    
-passes_presence_threshold <- function(peptides, presence_fraction, print_stuff=FALSE) {
+passes_presence_threshold <- function(peptides, presence_fraction, min_overlap, debug_print=FALSE, use_any_peptide_for_coverage=TRUE) {
     
-    # if (nrow(peptides) > 1) {
-    #     message(paste(peptides, collapse=", "), " ", max(rowSums(!is.na(peptides))) / ncol(peptides))
-    # }
+    peptides_filtered <- peptides[rowSums(!is.na(peptides)) >= min_overlap, , drop=FALSE]
     
-    
-    
-    peptides <- peptides[rowSums(!is.na(peptides)) >= 3, , drop=FALSE]
-    
-    if (print_stuff) {
+    if (debug_print) {
+        print("Raw data")
+        print(peptides)
+        print("Filtered data")
+        print(peptides_filtered)
+        print("Numbers")
         print(rowSums(!is.na(peptides)))
         print(rowSums(!is.na(peptides)) >= 3)
-        print(peptides[rowSums(!is.na(peptides)) >= 3, , drop=FALSE])
-        print("Best presence")
-        print(max(rowSums(!is.na(peptides))) / ncol(peptides))
+        message("Total numbers of columns: ", ncol(peptides))
+        print("use_any_peptide_for_coverage=FALSE")
+        print(length(which(colSums(!is.na(peptides_filtered)) > 0)) / ncol(peptides_filtered))
+        print("use_any_peptide_for_coverage=TRUE")
+        print(max(rowSums(!is.na(peptides_filtered))) / ncol(peptides_filtered))
         print("Rowsums:")
-        print(rowSums(!is.na(peptides)))
+        print(rowSums(!is.na(peptides_filtered)))
         print("New setup")
-        print(length(which(colSums(!is.na(peptides)) > 0)) / ncol(peptides))
+        print(length(which(colSums(!is.na(peptides_filtered)) > 0)) / ncol(peptides_filtered))
     }
     
     # Any peptide should match the coverage
-    length(which(colSums(!is.na(peptides)) > 0)) / ncol(peptides) >= presence_fraction
     
-    # Best peptide should match minimum coverage
-    # max(rowSums(!is.na(peptides))) / ncol(peptides) >= presence_fraction
+    if (use_any_peptide_for_coverage) {
+        # Any peptide counts for coverage
+        length(which(colSums(!is.na(peptides_filtered)) > 0)) / ncol(peptides_filtered) >= presence_fraction
+    }
+    else {
+        # Best peptide should match minimum coverage
+        max(rowSums(!is.na(peptides_filtered))) / ncol(peptides_filtered) >= presence_fraction
+    }
 }
  
 rrollup = function(peptides, combine_func=median, min_overlap=3, get_debug_info=FALSE, minPs=5, outlier_pval=0.05) {
@@ -327,7 +330,8 @@ main <- function() {
         as.matrix(sdf),
         one_hit_wonders=argv$one_hit_wonders,
         min_presence=argv$min_presence,
-        min_overlap=argv$min_overlap
+        min_overlap=argv$min_overlap,
+        debug_protein=argv$debug_protein
     )
 
     if (argv$out_protein_name != "") {
@@ -357,6 +361,8 @@ parse_input_params <- function() {
     parser <- argparser::add_argument(parser, "--out_protein_name", help="Name of protein column in output", type="character", default="")
     # parser <- add_argument(parser, "--protein_rollup_path", help="CraftOmics protein tools path", type="character", default="ProteinRollup.R")
 
+    parser <- argparser::add_argument(parser, "--debug_protein", help="Specify protein ID to debug", default=NULL, type="character")
+    
     parser <- argparser::add_argument(parser, "--show_warnings", help="Immediately print warnings", type="bool", default=FALSE)
 
     argv <- argparser::parse_args(parser)
