@@ -2,9 +2,9 @@
 
 This is a fresh software. Initially, I recommend you cross-check the results with InfernoRDN ([homepage](https://omics.pnl.gov/software/infernordn)). This one is a rewrite of the RRollup method found in [InfernoRDN](https://github.com/PNNL-Comp-Mass-Spec/InfernoRDN/blob/master/Rscripts/Rollup/RRollup.R#L55).
 
-Settings to include:
+Known discrepancies from original:
 
-* Presence percentage requirements for peptides (no requirement here, InfernoRDN requires 50% per default)
+* Filtering of a dataset containing ~1200 proteins led to this version filtering out four proteins not filtered by InfernoRDN. Closer inspection showed that these didn't fulfill the criteria of 50% non-missing values in at least one peptide (10/21 present) but was anyway retained by InfernoRDN.
 
 I wish:
 
