@@ -5,7 +5,7 @@ library(matrixStats, warn.conflicts=FALSE)
 # Inspired by DANTE and pmartR
 # https://github.com/PNNL-Comp-Mass-Spec/InfernoRDN/blob/master/Rscripts/Rollup/RRollup.R
 
-protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE, one_hit_wonders=FALSE, min_presence=0, min_overlap=3, debug_protein=NULL) {
+protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE, one_hit_wonders=FALSE, min_presence=0, min_overlap=3, debug_protein=NA) {
 
     if (typeof(pep_mat) != "double") {
         warning("Input expected to be a 'double' matrix, found: ", typeof(pep_mat))
@@ -24,7 +24,7 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
     
     for (protein in unique_proteins) {
         
-        if (!is.null(debug_protein) && protein == debug_protein) {
+        if (!is.na(debug_protein) && protein == debug_protein) {
             message("Found target protein: ", debug_protein)
             debug_print <- TRUE
         }
@@ -87,7 +87,7 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
     }
 }
    
-passes_presence_threshold <- function(peptides, presence_fraction, min_overlap, debug_print=FALSE, use_any_peptide_for_coverage=TRUE) {
+passes_presence_threshold <- function(peptides, presence_fraction, min_overlap, debug_print=FALSE, use_any_peptide_for_coverage=FALSE) {
     
     peptides_filtered <- peptides[rowSums(!is.na(peptides)) >= min_overlap, , drop=FALSE]
     
@@ -111,8 +111,10 @@ passes_presence_threshold <- function(peptides, presence_fraction, min_overlap, 
     }
     
     # Any peptide should match the coverage
-    
-    if (use_any_peptide_for_coverage) {
+    if (nrow(peptides_filtered) == 0){
+        FALSE
+    }
+    else if (use_any_peptide_for_coverage) {
         # Any peptide counts for coverage
         length(which(colSums(!is.na(peptides_filtered)) > 0)) / ncol(peptides_filtered) >= presence_fraction
     }
@@ -361,7 +363,7 @@ parse_input_params <- function() {
     parser <- argparser::add_argument(parser, "--out_protein_name", help="Name of protein column in output", type="character", default="")
     # parser <- add_argument(parser, "--protein_rollup_path", help="CraftOmics protein tools path", type="character", default="ProteinRollup.R")
 
-    parser <- argparser::add_argument(parser, "--debug_protein", help="Specify protein ID to debug", default=NULL, type="character")
+    parser <- argparser::add_argument(parser, "--debug_protein", help="Specify protein ID to debug", default=NA, type="character")
     
     parser <- argparser::add_argument(parser, "--show_warnings", help="Immediately print warnings", type="bool", default=FALSE)
 
