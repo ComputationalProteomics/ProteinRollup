@@ -1,6 +1,6 @@
 Package: ProteinRollup
 Title: RRollup from DanteR
-Version: 0.9.0
+Version: 0.9.3
 Maintainer: Jakob Willforss <jakob.willforss@immun.lth.se>
 Author: Jakob Willforss
 Authors@R: c(person("Jakob", "Willforss", email="jakob.willforss@immun.lth.se", role=c("aut", "cre")))
