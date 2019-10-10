@@ -1,10 +1,8 @@
-library(outliers)
-suppressPackageStartupMessages(library(tidyverse, warn.conflicts=FALSE))
-library(matrixStats, warn.conflicts=FALSE)
-
 # Inspired by DANTE and pmartR
 # https://github.com/PNNL-Comp-Mass-Spec/InfernoRDN/blob/master/Rscripts/Rollup/RRollup.R
 
+#' @import dplyr readr
+#' @importFrom stats cor median weighted.mean
 protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col_name="Protein", get_debug_info=FALSE, one_hit_wonders=FALSE, min_presence=0, min_overlap=3, debug_protein=NA) {
 
     if (typeof(pep_mat) != "double") {
@@ -69,10 +67,10 @@ protein_rollup = function(protein_ids, pep_mat, rollup_func=rrollup, protein_col
         pep_count=pep_counts %>% unlist(), 
         rollup_score=rollup_scores  %>% unlist(),
         data.frame(do.call("rbind", prot_results), row.names = NULL)
-    ) %>% arrange(Protein)
+    ) %>% arrange(.data$Protein)
     
     if (!one_hit_wonders) {
-        out_df <- out_df %>% filter(pep_count > 1)
+        out_df <- out_df %>% filter(.data$pep_count > 1)
     }
     
     if (!get_debug_info) {
@@ -162,7 +160,7 @@ rrollup = function(peptides, combine_func=median, min_overlap=3, get_debug_info=
         # Internal variations of peptides stay consistent, but focused around reference peptide
         x_scaled <- peptides + matrix(overlap_medians, nrow=num_peps, ncol=ncol(peptides))
         
-        x_scaled_nooutlier <- remove_outliers(x_scaled, minPs=minPs, pvalue=outlier_pval)
+        x_scaled_nooutlier <- remove_outliers(x_scaled, minPs=minPs, pvalue_thres=outlier_pval)
         
         # 4. Calculate sample-wise medians across reference and scaled peptides
         protein_val <- apply(x_scaled_nooutlier, 2, combine_func, na.rm=TRUE)
@@ -291,7 +289,7 @@ rollup.score = function(currPepSel, currProtSel, method) {
         }
     }
     
-    meanCorr <- weighted.mean(pepCorr, ws, na.rm=TRUE) # Mean correlation value for each protein
+    meanCorr <- stats::weighted.mean(pepCorr, ws, na.rm=TRUE) # Mean correlation value for each protein
     Penalty1 <- 1 - 1 / N1
     Score <- meanCorr * Penalty1
     
@@ -300,13 +298,11 @@ rollup.score = function(currPepSel, currProtSel, method) {
     return(out)
 }
 
-
 # Main run, would like to separate out this to other file
 main <- function() {
     
     argv <- parse_input_params()
-    # source(argv$protein_rollup_path)
-    raw_rdf <- read_tsv(argv$rdf_fp, col_types=cols())
+    raw_rdf <- readr::read_tsv(argv$rdf_fp, col_types=cols())
     
     if (argv$min_presence < 0 || argv$min_presence > 1) {
         stop("--min_presence expected to be in range 0 to 1, found: ", argv$min_presence)
@@ -381,7 +377,6 @@ parse_input_params <- function() {
     argv
 }
 
-if (!interactive()) {
-    library(argparser)
-    main()
-}
+# if (!interactive()) {
+#     main()
+# }

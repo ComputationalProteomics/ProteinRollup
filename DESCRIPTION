@@ -1,0 +1,23 @@
+Package: ProteinRollup
+Title: RRollup from DanteR
+Version: 0.9.0
+Maintainer: Jakob Willforss <jakob.willforss@immun.lth.se>
+Author: Jakob Willforss
+Authors@R: c(person("Jakob", "Willforss", email="jakob.willforss@immun.lth.se", role=c("aut", "cre")))
+Description: 
+    A simple way to run the DanteR RRollup in R.
+Imports:
+    dplyr,
+    readr,
+    outliers,
+    matrixStats
+Suggests:
+    argparser,
+    knitr,
+    testthat
+VignetteBuilder: knitr
+License: Apache License 2.0
+Encoding: UTF-8
+RoxygenNote: 6.1.1
+URL: ""
+Depends: R (>= 3.6)
