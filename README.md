@@ -19,13 +19,15 @@ install.packages(c("tidyverse", "outliers", "argparser", "matrixStats"))
 
 # Basic run examples from terminal
 
+Can be executed from terminal using the `protein_rollup.R` script present in the RWorkflowModules Git repo (https://github.com/Jakob37/RWorkflowModules).
+
 ## With design matrix
 
 If you have multiple annotation columns in your data matrix, you need to use a design matrix
 to distinguish these
 
 ```
-Rscript ProteinRollup.R \
+Rscript protein_rollup.R \
     --rdf_fp testdata/dummy_df.tsv \
     --ddf_fp ProteinRollup/testdata/dummy_df_design.tsv \
     --sample_col sample \
@@ -38,7 +40,7 @@ Rscript ProteinRollup.R \
 If having an expression dataset with a single annotation column specifying the proteins, the following call can be executed.
 
 ```
-Rscript ProteinRollup.R \
+Rscript protein_rollup.R \
     --rdf_fp testdata/dummy_df.tsv \
     --out_fp test_out.tsv \
     --one_column_mode TRUE
