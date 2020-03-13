@@ -27,7 +27,7 @@ If you have multiple annotation columns in your data matrix, you need to use a d
 to distinguish these
 
 ```
-Rscript protein_rollup.R \
+Rscript run_protein_rollup.R \
     --rdf_fp testdata/dummy_df.tsv \
     --ddf_fp ProteinRollup/testdata/dummy_df_design.tsv \
     --sample_col sample \
@@ -40,7 +40,7 @@ Rscript protein_rollup.R \
 If having an expression dataset with a single annotation column specifying the proteins, the following call can be executed.
 
 ```
-Rscript protein_rollup.R \
+Rscript run_protein_rollup.R \
     --rdf_fp testdata/dummy_df.tsv \
     --out_fp test_out.tsv \
     --one_column_mode TRUE
@@ -54,7 +54,7 @@ source("ProteinRollup.R")
 
 peptide_rdf <- read_tsv("testdata/dummy_df.tsv")
 peptide_mat <- peptide_rdf[, -1] %>% as.matrix()
-protein_ids <- peptide_mat$Protein
+protein_ids <- peptide_rdf$Protein
 
 protein_rollup(protein_ids, peptide_mat)
 ```
